@@ -11,7 +11,7 @@ from apscheduler.triggers.date import DateTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 from nio import AsyncClient, MatrixRoom
 from nio.events.room_events import RoomMessageText
-from cron_descriptor import get_description
+from cron_descriptor import ExpressionDescriptor, Options, CasingTypeEnum, DescriptionTypeEnum
 import humanize
 import locale
 
@@ -493,7 +493,12 @@ class Command(object):
             # Cron-based reminders
             elif isinstance(reminder.job.trigger, CronTrigger):
                 # A human-readable cron tab, in addition to the actual tab
-                human_cron = get_description(reminder.cron_tab, locale='zh_CN')
+                options = Options()
+                options.locale_code = "zh_CN"
+                options.casing_type = CasingTypeEnum.Sentence
+                options.use_24hour_time_format = True
+                descriptor = ExpressionDescriptor(reminder.cron_tab, options)
+                human_cron = descriptor.get_description(DescriptionTypeEnum.FULL)
                 if human_cron != reminder.cron_tab:
                     line += f"{human_cron} (`{reminder.cron_tab}`)"
                 else:
