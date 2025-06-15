@@ -595,6 +595,8 @@ class Command(object):
             text = f"""
 **提醒小助手的使用方法**
 
+视频教程：https://words6000.sharepoint.com/:f:/s/public/EsZPnUswl0tKuDuC0SqMCokBJo44PA1HbukLlwh7_acymw
+
 注意：`!` `;` 是英文的感叹号和分号，不要使用中文的感叹号和分号
 
 **1.创建一次性的提醒，只@创建者自己：**
@@ -708,11 +710,7 @@ class Command(object):
 {c}ar cron cron表达式; 提醒内容
 ```
 
-例如：每月18号早上6点钟
-
-```
-{c}rr cron 0 6 18 * *; 提醒内容
-```
+例如 每月18号早上6点钟: `{c}rr cron 0 6 18 * *; 提醒内容`
 """
         else:
             # Unknown help topic
