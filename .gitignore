@@ -25,6 +25,7 @@ build/
 
 # Default docker volume location
 data/
+pg_data/
 
 # Default bot store directory
 store/
