@@ -1,39 +1,19 @@
 version: '3.1' # specify docker-compose version
 
-volumes:
-  # Set up with `docker volume create ...`. See docker/README.md for more info.
-  data_volume:
-    external: true
-  pg_data_volume:
-
 services:
   # Runs from the latest release
   matrix-reminder-bot:
     image: anoa/matrix-reminder-bot
     restart: always
     volumes:
-      - data_volume:/data
+      - ../data:/data
     # Used for allowing connections to homeservers hosted on the host machine
     # (while docker host mode is still broken on Linux).
     #
     # Defaults to 127.0.0.1 and is set in docker/.env
-    extra_hosts:
-      - "localhost:${HOST_IP_ADDRESS}"
+    #extra_hosts:
+    #  - "localhost:${HOST_IP_ADDRESS}"
 
-  # Runs from the latest release, but pulls the image from GitHub instead of Docker Hub
-  matrix-reminder-bot-ghcr:
-    image: ghcr.io/anoadragon453/matrix-reminder-bot
-    restart: always
-    volumes:
-      - data_volume:/data
-    # Used for allowing connections to homeservers hosted on the host machine
-    # (while docker host mode is still broken on Linux).
-    #
-    # Defaults to 127.0.0.1 and is set in docker/.env
-    extra_hosts:
-      - "localhost:${HOST_IP_ADDRESS}"
-
-  # Builds and runs an optimized container from local code
   local-checkout:
     build:
       context: ..
@@ -42,36 +22,13 @@ services:
       # args:
       #  PYTHON_VERSION: 3.12
     volumes:
-      - data_volume:/data
-    # Used for allowing connections to homeservers hosted on the host machine
-    # (while docker host networking mode is still broken on Linux).
-    #
-    # Defaults to 127.0.0.1 and is set in docker/.env
-    extra_hosts:
-      - "localhost:${HOST_IP_ADDRESS}"
-
-  # Builds and runs a development container from local code
-  local-checkout-dev:
-    build:
-      context: ..
-      dockerfile: docker/Dockerfile.dev
-      # Build arguments may be specified here
-      # args:
-      #  PYTHON_VERSION: 3.12
-    volumes:
-      - data_volume:/data
-    # Used for allowing connections to homeservers hosted on the host machine
-    # (while docker host networking mode is still broken on Linux).
-    #
-    # Defaults to 127.0.0.1 and is set in docker/.env
-    extra_hosts:
-      - "localhost:${HOST_IP_ADDRESS}"
+      - ../data:/data
 
   # Starts up a postgres database
   postgres:
     image: postgres
     restart: always
     volumes:
-      - pg_data_volume:/var/lib/postgresql/data
+      - ../pg_data:/var/lib/postgresql/data
     environment:
-        POSTGRES_PASSWORD: matrixreminderbot
+        POSTGRES_PASSWORD: v2f505f4TA5SZU1M
