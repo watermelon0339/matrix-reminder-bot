@@ -34,6 +34,8 @@ def _get_datetime_now(tz: str) -> datetime:
     # Get datetime.now with that offset
     now = datetime.now(offset)
 
+    logger.info("_get_datetime_now: tz %s, now %s", tz, now)
+
     # Round to the nearest second for nicer display
     return now.replace(microsecond=0)
 
@@ -61,15 +63,18 @@ def _parse_str_to_time(time_str: str, tz_aware: bool = True) -> datetime:
         },
     )
     if not time:
-        raise CommandError(f"The given time '{time_str}' is invalid.")
+        raise CommandError(f"提供的时间 '{time_str}' 无效。")
+
+    logger.info("_parse_str_to_time: %s ➡️ %s", time_str, time)
 
     # Disallow times in the past
     tzinfo = pytz.timezone(CONFIG.timezone)
     local_time = time
     if not tz_aware:
         local_time = tzinfo.localize(time)
+        logger.info("_parse_str_to_time: tz_aware %b, local_time %s", tz_aware, local_time)
     if local_time < _get_datetime_now(CONFIG.timezone):
-        raise CommandError(f"The given time '{time_str}' is in the past.")
+        raise CommandError(f"提供的时间 '{time_str}' 已经过去，请提供将来的时间。")
 
     # Round datetime object to the nearest second for nicer display
     time = time.replace(microsecond=0)
@@ -160,12 +165,12 @@ class Command(object):
 
         # Determine whether this is a recurring command
         # Recurring commands take the form:
-        # every <recurse time>, <start time>, <text>
-        recurring = time_str.startswith("every")
+        # 每 <recurse time>, <start time>, <text>
+        recurring = time_str.startswith("每")
         recurse_timedelta = None
         if recurring:
-            # Remove "every" and retrieve the recurse time
-            recurse_time_str = time_str[len("every") :].strip()
+            # Remove "每" and retrieve the recurse time
+            recurse_time_str = time_str[len("每") :].strip()
             logger.debug("Got recurring time: %s", recurse_time_str)
 
             # Convert the recurse time to a datetime object
@@ -202,24 +207,24 @@ class Command(object):
             # Special-case cron-style reminders. We currently don't do any special
             # parsing for them
             await send_text_to_room(
-                self.client, self.room.room_id, "OK, I will remind you!"
+                self.client, self.room.room_id, "好的，我会提醒你！"
             )
 
             return
 
         # Convert a datetime to a formatted time (ex. May 25 2020, 01:31)
         start_time = pytz.timezone(reminder.timezone).localize(reminder.start_time)
-        human_readable_start_time = start_time.strftime("%b %d %Y, %H:%M")
+        human_readable_start_time = start_time.strftime("%Y年%m月%d日 %H:%M")
 
         # Get a textual representation of who will be notified by this reminder
-        target = "you" if reminder.target_user else "everyone in the room"
+        target = "你" if reminder.target_user else "房间内所有人"
 
         # Build the response string
-        text = f"OK, I will remind {target} on {human_readable_start_time}"
+        text = f"好的，我会在 {human_readable_start_time} 提醒{target}"
 
         if reminder.recurse_timedelta:
             # Inform the user how often their reminder will repeat
-            text += f", and again every {readabledelta(reminder.recurse_timedelta)}"
+            text += f"，之后每{readabledelta(reminder.recurse_timedelta, lang='zh')}再次提醒"
 
         # Add some punctuation
         text += "!"
@@ -227,9 +232,7 @@ class Command(object):
         if reminder.alarm:
             # Inform the user that an alarm is attached to this reminder
             text += (
-                f"\n\nWhen this reminder goes off, an alarm will sound every "
-                f"5 minutes until silenced. Alarms may be silenced using the "
-                f"`{CONFIG.command_prefix}silence` command."
+                f"\n\n当此提醒触发时，每5分钟会响铃一次，直到被静音。可使用 `{CONFIG.command_prefix}silence` 命令静音。"
             )
 
         # Send the message to the room
@@ -277,7 +280,7 @@ class Command(object):
             await send_text_to_room(
                 self.client,
                 self.room.room_id,
-                "A similar reminder already exists. Please delete that one first.",
+                "已经存在相同的提醒内容的提醒了，请先删除原有提醒。",
             )
             return
 
@@ -336,29 +339,29 @@ class Command(object):
         elif self.command in ["help", "h"]:
             await self._help()
 
-    @command_syntax("[every <recurring time>;] <start time>; <reminder text>")
+    @command_syntax("[每 <循环时间>;] <开始时间>; <提醒内容>")
     async def _remind_me(self):
         """Set a reminder that will remind only the user who created it"""
         await self._remind(target=self.event.sender)
 
-    @command_syntax("[every <recurring time>;] <start time>; <reminder text>")
+    @command_syntax("[每 <循环时间>;] <开始时间>; <提醒内容>")
     async def _remind_room(self):
         """Set a reminder that will mention the room that the reminder was created in"""
         await self._remind()
 
-    @command_syntax("[every <recurring time>;] <start time>; <reminder text>")
+    @command_syntax("[每 <循环时间>;] <开始时间>; <提醒内容>")
     async def _alarm_me(self):
         """Set a reminder with an alarm that will remind only the user who created it"""
         await self._remind(target=self.event.sender, alarm=True)
 
-    @command_syntax("[every <recurring time>;] <start time>; <reminder text>")
+    @command_syntax("[每 <循环时间>;] <开始时间>; <提醒内容>")
     async def _alarm_room(self):
         """Set a reminder with an alarm that when fired will mention the room that the
         reminder was created in
         """
         await self._remind(alarm=True)
 
-    @command_syntax("[<reminder text>]")
+    @command_syntax("[<提醒内容>]")
     async def _silence(self):
         """Silences an ongoing alarm"""
 
@@ -370,7 +373,7 @@ class Command(object):
 
             if alarm_job:
                 await self._remove_and_silence_alarm(alarm_job, reminder_text)
-                text = f"Alarm '{reminder_text}' silenced."
+                text = f"闹钟 '{reminder_text}' 已静音。"
             else:
                 # We didn't find an alarm with that reminder text
                 #
@@ -379,13 +382,11 @@ class Command(object):
                 reminder = REMINDERS.get((self.room.room_id, reminder_text.upper()))
                 if reminder:
                     text = (
-                        f"The reminder '{reminder_text}' does not currently have an "
-                        f"alarm going off."
+                        f"提醒 '{reminder_text}' 当前没有闹钟正在响铃。"
                     )
                 else:
                     # Nope, can't find it
-                    text = f"Unknown alarm or reminder '{reminder_text}'."
-
+                    text = f"未知的闹钟或提醒 '{reminder_text}'。"
         else:
             # No reminder text provided. Check if there's a reminder currently firing
             # in the room instead then
@@ -399,13 +400,13 @@ class Command(object):
                     await self._remove_and_silence_alarm(
                         reminder.alarm_job, reminder_text
                     )
-                    text = f"Alarm '{reminder_text}' silenced."
+                    text = f"闹钟 '{reminder_text}' 已静音。"
 
                     # Prevent the `else` clause from being triggered
                     break
             else:
                 # If we didn't find any alarms...
-                text = "No alarms are currently firing in this room."
+                text = "当前房间没有正在响铃的闹钟。"
 
         await send_text_to_room(self.client, self.room.room_id, text)
 
@@ -454,7 +455,7 @@ class Command(object):
         for alarm in ALARMS.values():
             line = "- "
             if isinstance(alarm.job.trigger, IntervalTrigger):
-                line += f"🔁 every {readabledelta(alarm.recurse_timedelta)}; "
+                line += f"🔁 每{readabledelta(alarm.recurse_timedelta, lang='zh')}; "
             line += f'"*{alarm.reminder_text}*"'
             firing_alarms_lines.append(line)
 
@@ -477,12 +478,12 @@ class Command(object):
             # One-time reminders
             if isinstance(reminder.job.trigger, DateTrigger):
                 # Just print when the reminder will go off
-                line += f"{next_execution.humanize()}"
+                line += f"{next_execution.format('YYYY年MM月DD日 HH:mm')}"
 
             # Repeat reminders
             elif isinstance(reminder.job.trigger, IntervalTrigger):
                 # Print the interval, and when it will next go off
-                line += f"every {readabledelta(reminder.recurse_timedelta)}; next run {next_execution.humanize()}"
+                line += f"每{readabledelta(reminder.recurse_timedelta, lang='zh')}; 下次运行 {next_execution.humanize(locale='zh_cn')}"
 
             # Cron-based reminders
             elif isinstance(reminder.job.trigger, CronTrigger):
@@ -491,8 +492,8 @@ class Command(object):
                 if human_cron != reminder.cron_tab:
                     line += f"{human_cron} (`{reminder.cron_tab}`)"
                 else:
-                    line += f"`Every {reminder.cron_tab}`"
-                line += f"; next run {next_execution.humanize()}"
+                    line += f"`每 {reminder.cron_tab}`"
+                line += f"; 下次运行 {next_execution.humanize(locale='zh_cn')}"
 
             # Add the reminder's text
             line += f'; *"{reminder.reminder_text}"*'
@@ -515,29 +516,29 @@ class Command(object):
             await send_text_to_room(
                 self.client,
                 self.room.room_id,
-                "*There are no reminders for this room.*",
+                "*当前房间没有设置任何提醒。*",
             )
             return
 
         if firing_alarms_lines:
-            output += "\n\n" + "**⏰ Firing Alarms**" + "\n\n"
+            output += "\n\n" + "**⏰ 正在响铃的闹钟**" + "\n\n"
             output += "\n".join(firing_alarms_lines)
 
         if one_shot_reminder_lines:
-            output += "\n\n" + "**1️⃣ One-time Reminders**" + "\n\n"
+            output += "\n\n" + "**1️⃣ 一次性提醒**" + "\n\n"
             output += "\n".join(one_shot_reminder_lines)
 
         if interval_reminder_lines:
-            output += "\n\n" + "**🔁 Repeating Reminders**" + "\n\n"
+            output += "\n\n" + "**🔁 循环提醒**" + "\n\n"
             output += "\n".join(interval_reminder_lines)
 
         if cron_reminder_lines:
-            output += "\n\n" + "**📅 Cron Reminders**" + "\n\n"
+            output += "\n\n" + "**📅 Cron提醒**" + "\n\n"
             output += "\n".join(cron_reminder_lines)
 
         await send_text_to_room(self.client, self.room.room_id, output)
 
-    @command_syntax("<reminder text>")
+    @command_syntax("<提醒内容>")
     async def _delete_reminder(self):
         """Delete a reminder via its reminder text"""
         reminder_text = " ".join(self.args)
@@ -554,12 +555,12 @@ class Command(object):
             # Cancel the reminder and associated alarms
             reminder.cancel()
 
-            text = "Reminder"
+            text = "提醒"
             if reminder.alarm:
-                text = "Alarm"
-            text += f' "*{reminder_text}*" cancelled.'
+                text = "闹钟"
+            text += f' "*{reminder_text}*" 已取消。'
         else:
-            text = f"Unknown reminder '{reminder_text}'."
+            text = f"未知的提醒 '{reminder_text}'。"
 
         await send_text_to_room(self.client, self.room.room_id, text)
 
@@ -572,8 +573,7 @@ class Command(object):
 
         if not self.args:
             text = (
-                f"Hello, I am a reminder bot! Use `{c}help reminders` "
-                f"to view available commands."
+                f"你好，我是提醒小助手！使用 `{c}help reminders` 查看可用命令。"
             )
             await send_text_to_room(self.client, self.room.room_id, text)
             return
@@ -583,62 +583,96 @@ class Command(object):
         # Simply way to check for plurals
         if topic.startswith("reminder"):
             text = f"""
-**Reminders**
+**使用方法**
 
-Create an optionally recurring reminder that notifies the reminder creator:
+注意：`!` `;` 是英文的感叹号和分号，不要使用中文的感叹号和分号
 
-```
-{c}remindme|remind|r [every <recurring time>;] <start time>; <reminder text>
-```
-
-Create an optionally recurring reminder that notifies the whole room.
-(Note that the bot will need appropriate permissions to mention
-the room):
+1. 创建一次性的提醒，只@创建者自己：
 
 ```
-{c}remindroom|rr [every <recurring time>;] <start time>; <reminder text>
+{c}remindme 今天19:00 ; 提醒我填写CD链接 https://www.baidu.com
+
+# remindme 可以简写为 r
+{c}r 今天19:00 ; 提醒我填写CD链接 https://www.baidu.com
+{c}r 明天05:00 ; 提醒我...
+{c}r 本周日05:00 ; 提醒我...
+{c}r 2025年7月7日12:00 ; 提醒我...
 ```
 
-List all active reminders for a room:
+---
+
+2. 创建一次性的提醒，@房间内所有人（需要小助手有@整个房间的权限）：
 
 ```
-{c}listreminders|list|lr|l
+# 把上面命令中 remindme 改为 remindroom 或 rr 即可
+{c}remindroom 今天19:00 ; 提醒我填写CD链接 https://www.baidu.com
+{c}rr 今天19:00 ; 提醒我填写CD链接 https://www.baidu.com
 ```
 
-Cancel a reminder:
+3. 创建每周的循环提醒
 
 ```
-{c}cancelreminder|cancel|cr|c <reminder text>
+# 只@创建者自己
+{c}r 每1周; 周一05:10; 每周一早上5点参加JSJY
+
+# @所有人
+{c}rr 每1周; 周一05:10; 每周一早上5点参加JSJY
 ```
 
-**Alarms**
-
-Create a reminder that will repeatedly sound every 5m after its usual
-fire time. Otherwise, the syntax is the same as a reminder:
+4. 列出房间内所有提醒：
 
 ```
-{c}alarmme|alarm|a [every <recurring time>;] <start time>; <reminder text>
+{c}list
+
+# 或者简写为：
+{c}l
 ```
 
-or for notifying the whole room:
+5. 取消提醒或闹钟：
 
 ```
-{c}alarmroom|ar [every <recurring time>;] <start time>; <reminder text>
+{c}cancel 完整的提醒内容
+
+# 或者简写为：
+{c}c 完整的提醒内容
 ```
 
-Once firing, an alarm can be silenced with:
+6. 创建一个在到点后每5分钟响铃一次的提醒（闹钟）：
 
 ```
-{c}silence|s [<reminder text>]
+{c}alarmme 其他命令格式和提醒一样
+
+# 或者简写为：
+{c}a 其他命令格式和提醒一样
+
+
+{c}alarmroom 其他命令格式和提醒一样
+
+# 或者简写为：
+{c}ar 其他命令格式和提醒一样
 ```
 
-**Cron-tab Syntax**
-
-If you need more complicated recurring reminders, you can make use of
-cron-tab syntax:
+闹钟响铃后可用以下命令静音：
 
 ```
-{c}remindme|remind|r cron <min> <hour> <day of month> <month> <day of week>; <reminder text>
+{c}silence 完整的提醒内容
+
+# 或者简写为：
+{c}s [<提醒内容>]
+```
+
+**高级Cron语法**
+
+用 cron表达式 实现更灵活任意的提醒功能，请使用 AI工具 帮你生成 cron 表达式，参考提示词：`请帮我生成一个cron表达式，要求：每月18号早上6点钟`，然后使用以下命令：
+
+```
+{c}r cron cron表达式; 提醒内容
+{c}rr cron cron表达式; 提醒内容
+{c}a cron cron表达式; 提醒内容
+{c}ar cron cron表达式; 提醒内容
+
+# 例如：每月18号早上6点钟
+{c}rr cron 0 6 18 * *; 提醒内容
 ```
 
 This syntax is supported by any `{c}remind...` or `{c}alarm...` command above.
@@ -654,6 +688,5 @@ This syntax is supported by any `{c}remind...` or `{c}alarm...` command above.
         await send_text_to_room(
             self.client,
             self.room.room_id,
-            f"Unknown help topic '{self.command}'. Try the 'help' command for more "
-            f"information.",
+            f"未知帮助主题 '{self.command}'。请尝试使用 'help' 命令获取更多信息。",
         )
