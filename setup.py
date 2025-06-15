@@ -39,7 +39,7 @@ setup(
         "apscheduler>=3.10.4",
         "pytz>=2024.1",
         "arrow>=1.3.0",
-        "pretty_cron>=1.2.0",
+        "cron-descriptor>=1.4.5",
     ],
     extras_require={
         "postgres": ["psycopg2>=2.9.9"],

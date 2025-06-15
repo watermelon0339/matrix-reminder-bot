@@ -11,7 +11,7 @@ from apscheduler.triggers.date import DateTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 from nio import AsyncClient, MatrixRoom
 from nio.events.room_events import RoomMessageText
-from pretty_cron import prettify_cron
+from cron_descriptor import get_description
 import humanize
 import locale
 
@@ -488,17 +488,17 @@ class Command(object):
             # Repeat reminders
             elif isinstance(reminder.job.trigger, IntervalTrigger):
                 # Print the interval, and when it will next go off
-                line += f"每{humanize.naturaldelta(reminder.recurse_timedelta, minimum_unit='seconds', months=False)}; 下次运行 {next_execution.humanize(locale='zh_cn')}"
+                line += f"每{humanize.naturaldelta(reminder.recurse_timedelta, minimum_unit='seconds', months=False)}; 下次提醒 {next_execution.humanize(locale='zh_cn')}"
 
             # Cron-based reminders
             elif isinstance(reminder.job.trigger, CronTrigger):
                 # A human-readable cron tab, in addition to the actual tab
-                human_cron = prettify_cron(reminder.cron_tab)
+                human_cron = get_description(reminder.cron_tab, locale='zh_CN')
                 if human_cron != reminder.cron_tab:
                     line += f"{human_cron} (`{reminder.cron_tab}`)"
                 else:
                     line += f"`每 {reminder.cron_tab}`"
-                line += f"; 下次运行 {next_execution.humanize(locale='zh_cn')}"
+                line += f"; 下次提醒 {next_execution.humanize(locale='zh_cn')}"
 
             # Add the reminder's text
             line += f'; *"{reminder.reminder_text}"*'
@@ -588,72 +588,94 @@ class Command(object):
         # Simply way to check for plurals
         if topic.startswith("reminder"):
             text = f"""
-**使用方法**
+## 提醒小助手的使用方法
 
 注意：`!` `;` 是英文的感叹号和分号，不要使用中文的感叹号和分号
 
-1. 创建一次性的提醒，只@创建者自己：
+### 1.创建一次性的提醒，只@创建者自己：
 
 ```
 {c}remindme 今天19:00 ; 提醒我填写CD链接 https://www.baidu.com
+```
 
-# remindme 可以简写为 r
+`remindme` 可以简写为 `r`:
+
+```
 {c}r 今天19:00 ; 提醒我填写CD链接 https://www.baidu.com
 {c}r 明天05:00 ; 提醒我填写CD链接 https://www.baidu.com
 {c}r 本周日05:00 ; 提醒我填写CD链接 https://www.baidu.com
 {c}r 2025年7月7日12:00 ; 提醒我填写CD链接 https://www.baidu.com
 ```
 
----
+### 2.创建一次性的提醒，@房间内所有人（需要小助手有@整个房间的权限）：
 
-2. 创建一次性的提醒，@房间内所有人（需要小助手有@整个房间的权限）：
+把上面命令中 `remindme` 改为 `remindroom` 或 `rr` 即可:
 
 ```
-# 把上面命令中 remindme 改为 remindroom 或 rr 即可
 {c}remindroom 今天19:00 ; 提醒我填写CD链接 https://www.baidu.com
 {c}rr 今天19:00 ; 提醒我填写CD链接 https://www.baidu.com
 ```
 
-3. 创建每周的循环提醒
+### 3.创建每周的循环提醒
+
+只@创建者自己:
 
 ```
-# 只@创建者自己
 {c}r 每1周; 周一05:10; 每周一早上5点参加JSJY
+```
 
-# @所有人
+@所有人:
+
+```
 {c}rr 每1周; 周一05:10; 每周一早上5点参加JSJY
 ```
 
-4. 列出房间内所有提醒：
+### 4.列出房间内所有提醒：
 
 ```
 {c}list
+```
 
-# 或者简写为：
+或者简写为：
+
+```
 {c}l
 ```
 
-5. 取消提醒或闹钟：
+### 5.取消提醒或闹钟：
 
 ```
 {c}cancel 完整的提醒内容
+```
 
-# 或者简写为：
+或者简写为：
+
+```
 {c}c 完整的提醒内容
 ```
 
-6. 创建一个在到点后每5分钟响铃一次的提醒（闹钟）：
+### 6.创建一个在到点后每5分钟响铃一次的提醒（闹钟）：
+
+只@创建者自己:
 
 ```
 {c}alarmme 其他命令格式和提醒一样
+```
 
-# 或者简写为：
+或者简写为：
+
+```
 {c}a 其他命令格式和提醒一样
+```
 
-
+@房间内所有人:
+```
 {c}alarmroom 其他命令格式和提醒一样
+```
 
-# 或者简写为：
+或者简写为：
+
+```
 {c}ar 其他命令格式和提醒一样
 ```
 
@@ -661,26 +683,30 @@ class Command(object):
 
 ```
 {c}silence 完整的提醒内容
+```
 
-# 或者简写为：
+或者简写为：
+
+```
 {c}s [<提醒内容>]
 ```
 
-**高级Cron语法**
+### 7.高级Cron语法
 
-用 cron表达式 实现更灵活任意的提醒功能，请使用 AI工具 帮你生成 cron 表达式，参考提示词：`请帮我生成一个cron表达式，要求：每月18号早上6点钟`，然后使用以下命令：
+用 `cron表达式` 实现更灵活任意的提醒功能，请使用 AI工具 帮你生成 `cron表达式`，参考提示词：`请帮我生成一个cron表达式，要求：每月18号早上6点钟`，然后使用以下命令：
 
 ```
 {c}r cron cron表达式; 提醒内容
 {c}rr cron cron表达式; 提醒内容
 {c}a cron cron表达式; 提醒内容
 {c}ar cron cron表达式; 提醒内容
-
-# 例如：每月18号早上6点钟
-{c}rr cron 0 6 18 * *; 提醒内容
 ```
 
-This syntax is supported by any `{c}remind...` or `{c}alarm...` command above.
+例如：每月18号早上6点钟
+
+```
+{c}rr cron 0 6 18 * *; 提醒内容
+```
 """
         else:
             # Unknown help topic
