@@ -35,7 +35,7 @@ setup(
         "Markdown>=3.5.2",
         "PyYAML>=6.0.1",
         "dateparser>=1.2.0",
-        "readabledelta>=0.0.2",
+        "humanize>=4.12.3",
         "apscheduler>=3.10.4",
         "pytz>=2024.1",
         "arrow>=1.3.0",

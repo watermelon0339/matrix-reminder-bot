@@ -12,7 +12,8 @@ from apscheduler.triggers.interval import IntervalTrigger
 from nio import AsyncClient, MatrixRoom
 from nio.events.room_events import RoomMessageText
 from pretty_cron import prettify_cron
-from readabledelta import readabledelta
+import humanize
+import locale
 
 from matrix_reminder_bot.config import CONFIG
 from matrix_reminder_bot.errors import CommandError, CommandSyntaxError
@@ -21,6 +22,10 @@ from matrix_reminder_bot.reminder import ALARMS, REMINDERS, SCHEDULER, Reminder
 from matrix_reminder_bot.storage import Storage
 
 logger = logging.getLogger(__name__)
+
+# Set locale for humanize to Chinese
+locale.setlocale(locale.LC_TIME, "zh_CN.UTF-8")
+humanize.i18n.activate("zh_CN")
 
 
 def _get_datetime_now(tz: str) -> datetime:
@@ -224,7 +229,7 @@ class Command(object):
 
         if reminder.recurse_timedelta:
             # Inform the user how often their reminder will repeat
-            text += f"，之后每{readabledelta(reminder.recurse_timedelta, lang='zh')}再次提醒"
+            text += f"，之后每{humanize.naturaldelta(reminder.recurse_timedelta, minimum_unit='seconds', months=False)}再次提醒"
 
         # Add some punctuation
         text += "!"
@@ -455,7 +460,7 @@ class Command(object):
         for alarm in ALARMS.values():
             line = "- "
             if isinstance(alarm.job.trigger, IntervalTrigger):
-                line += f"🔁 每{readabledelta(alarm.recurse_timedelta, lang='zh')}; "
+                line += f"🔁 每{humanize.naturaldelta(alarm.recurse_timedelta, minimum_unit='seconds', months=False)}; "
             line += f'"*{alarm.reminder_text}*"'
             firing_alarms_lines.append(line)
 
@@ -483,7 +488,7 @@ class Command(object):
             # Repeat reminders
             elif isinstance(reminder.job.trigger, IntervalTrigger):
                 # Print the interval, and when it will next go off
-                line += f"每{readabledelta(reminder.recurse_timedelta, lang='zh')}; 下次运行 {next_execution.humanize(locale='zh_cn')}"
+                line += f"每{humanize.naturaldelta(reminder.recurse_timedelta, minimum_unit='seconds', months=False)}; 下次运行 {next_execution.humanize(locale='zh_cn')}"
 
             # Cron-based reminders
             elif isinstance(reminder.job.trigger, CronTrigger):
@@ -594,9 +599,9 @@ class Command(object):
 
 # remindme 可以简写为 r
 {c}r 今天19:00 ; 提醒我填写CD链接 https://www.baidu.com
-{c}r 明天05:00 ; 提醒我...
-{c}r 本周日05:00 ; 提醒我...
-{c}r 2025年7月7日12:00 ; 提醒我...
+{c}r 明天05:00 ; 提醒我填写CD链接 https://www.baidu.com
+{c}r 本周日05:00 ; 提醒我填写CD链接 https://www.baidu.com
+{c}r 2025年7月7日12:00 ; 提醒我填写CD链接 https://www.baidu.com
 ```
 
 ---
